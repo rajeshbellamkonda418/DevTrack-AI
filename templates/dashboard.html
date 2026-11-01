@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevTrack AI Dashboard</title>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body>
+
+<aside class="sidebar">
+    <h2>DevTrack AI</h2>
+    <a href="/">Home</a>
+    <a href="/dashboard">Overview</a>
+    <a href="#status-overview">Application Status</a>
+    <a href="#recommendations">AI Recommendations</a>
+    <a href="#resume-analyzer">Resume Analyzer</a>
+    <a href="#job-search">Job Search</a>
+    <a href="#applications">My Applications</a>
+</aside>
+
+<main class="main">
+    <h1>Welcome back, Developer!</h1>
+    <p class="subtitle">Your applications, resume intelligence, and multi-platform career matching.</p>
+
+    <section class="stats" aria-label="Application statistics">
+        <div class="card">
+            <h2 id="totalApplications">0</h2>
+            <p>Applications</p>
+        </div>
+        <div class="card">
+            <h2 id="totalCompanies">0</h2>
+            <p>Companies</p>
+        </div>
+        <div class="card">
+            <h2 id="interviewCount">0</h2>
+            <p>Interviews</p>
+        </div>
+        <div class="card">
+            <h2 id="selectedCount">0</h2>
+            <p>Selected</p>
+        </div>
+    </section>
+
+    <section id="status-overview">
+        <h2>Application Status</h2>
+        <div id="statusChart" class="status-chart" aria-live="polite"></div>
+    </section>
+
+    <section id="recommendations">
+        <h2>AI Recommendations</h2>
+        <p>Enter your skills to find matching career profiles.</p>
+        <form id="recommend-form" class="recommend-form">
+            <label class="visually-hidden" for="skills-input">Your skills</label>
+            <input id="skills-input" type="text"
+                   placeholder="Java, React, AWS, SQL..."
+                   aria-describedby="skill-help" required>
+            <button type="submit">Find Matches</button>
+        </form>
+        <p id="skill-help" class="skill-help">
+            Add several skills separated by commas, or choose a suggestion:
+        </p>
+        <div class="skill-options" aria-label="Popular skill suggestions">
+            <button type="button" data-skill="Java">Java</button>
+            <button type="button" data-skill="JavaScript">JavaScript</button>
+            <button type="button" data-skill="TypeScript">TypeScript</button>
+            <button type="button" data-skill="C#">C#</button>
+            <button type="button" data-skill="C++">C++</button>
+            <button type="button" data-skill="Go">Go</button>
+            <button type="button" data-skill="Rust">Rust</button>
+            <button type="button" data-skill="PHP">PHP</button>
+            <button type="button" data-skill="Kotlin">Kotlin</button>
+            <button type="button" data-skill="Swift">Swift</button>
+            <button type="button" data-skill="React">React</button>
+            <button type="button" data-skill="Node.js">Node.js</button>
+            <button type="button" data-skill="Spring Boot">Spring Boot</button>
+            <button type="button" data-skill=".NET">.NET</button>
+            <button type="button" data-skill="SQL">SQL</button>
+            <button type="button" data-skill="AWS">AWS</button>
+            <button type="button" data-skill="Azure">Azure</button>
+            <button type="button" data-skill="Docker">Docker</button>
+            <button type="button" data-skill="Kubernetes">Kubernetes</button>
+            <button type="button" data-skill="Cybersecurity">Cybersecurity</button>
+            <button type="button" data-skill="Figma">Figma</button>
+        </div>
+        <div id="recommendationList" aria-live="polite"></div>
+    </section>
+
+    <!-- NEW FEATURE 1: AI RESUME ANALYZER FOR TARGET ROLE -->
+    <section id="resume-analyzer">
+        <div class="section-heading">
+            <div>
+                <h2>AI Resume Analyzer</h2>
+                <p>Check role match and ATS-readable content, get specific improvement suggestions, and create a clean text version without changing your claims.</p>
+            </div>
+        </div>
+
+        <form id="resume-form" class="resume-form-box">
+            <div class="form-row">
+                <label for="target-role-select">
+                    Target Role
+                    <select id="target-role-select" name="role" required>
+                        <option value="">-- Select Target Role --</option>
+                        <option value="Python Full-Stack Developer">Python Full-Stack Developer</option>
+                        <option value="Backend Python Developer">Backend Python Developer</option>
+                        <option value="Frontend Developer">Frontend Developer</option>
+                        <option value="Machine Learning Engineer">Machine Learning Engineer</option>
+                        <option value="Data Analyst">Data Analyst</option>
+                        <option value="AI Application Developer">AI Application Developer</option>
+                        <option value="Java Backend Developer">Java Backend Developer</option>
+                        <option value="JavaScript Full-Stack Developer">JavaScript Full-Stack Developer</option>
+                        <option value=".NET Developer">.NET Developer</option>
+                        <option value="C++ Systems Developer">C++ Systems Developer</option>
+                        <option value="Go Backend Developer">Go Backend Developer</option>
+                        <option value="Cloud and DevOps Engineer">Cloud and DevOps Engineer</option>
+                        <option value="Data Engineer">Data Engineer</option>
+                        <option value="Cybersecurity Analyst">Cybersecurity Analyst</option>
+                        <option value="QA Automation Engineer">QA Automation Engineer</option>
+                        <option value="Mobile App Developer">Mobile App Developer</option>
+                        <option value="UI/UX Designer">UI/UX Designer</option>
+                        <option value="custom">Custom Role / Other...</option>
+                    </select>
+                </label>
+                <div id="custom-role-container" class="custom-role-container" style="display: none;">
+                    <label for="custom-role-input">
+                        Custom Role Title
+                        <input id="custom-role-input" type="text" placeholder="e.g. SRE / DevOps / Solutions Architect">
+                    </label>
+                </div>
+            </div>
+
+            <div class="resume-mode-switch">
+                <button type="button" id="tab-file-btn" class="sub-tab is-active">Upload Resume File (.pdf, .docx, .txt)</button>
+                <button type="button" id="tab-text-btn" class="sub-tab">Paste Resume Text</button>
+            </div>
+
+            <div id="file-input-pane" class="tab-pane is-active">
+                <div class="drop-zone" id="dropZone">
+                    <input type="file" id="resumeFileInput" accept=".pdf,.docx,.doc,.txt" class="visually-hidden">
+                    <div class="drop-zone-content">
+                        <span class="upload-icon">📄</span>
+                        <p class="drop-zone-text"><strong>Click to select a file</strong> or drag and drop your resume here</p>
+                        <span class="drop-zone-hint">Supports PDF, DOCX, and TXT (Max 10MB)</span>
+                    </div>
+                    <div id="selectedFileInfo" class="selected-file-info" style="display: none;">
+                        <span class="file-badge">✓ Selected</span>
+                        <span id="selectedFileName" class="file-name"></span>
+                        <button type="button" id="removeFileBtn" class="remove-file-button">Change file</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="text-input-pane" class="tab-pane" style="display: none;">
+                <label for="resumeTextInput" class="visually-hidden">Paste resume content</label>
+                <textarea id="resumeTextInput" class="resume-textarea" rows="8" placeholder="Paste your resume content, experience, education, and technical skills here..."></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" id="analyzeResumeBtn" class="primary-button">Analyze Resume for Role ↗</button>
+                <p id="resumeMessage" class="form-message" aria-live="polite"></p>
+            </div>
+        </form>
+
+        <div id="resumeResults" class="resume-results" style="display: none;" aria-live="polite"></div>
+    </section>
+
+    <!-- NEW FEATURE 2: MULTI-PLATFORM JOB SEARCH -->
+    <section id="job-search">
+        <div class="section-heading">
+            <div>
+                <h2>Multi-Platform Job Search</h2>
+                <p>Search live developer openings across top tech platforms (RemoteOK, Jobicy, Arbeitnow, LinkedIn, Indeed, Glassdoor) and track applications with 1 click.</p>
+            </div>
+        </div>
+
+        <form id="jobSearchForm" class="job-search-form">
+            <div class="job-search-grid">
+                <label>
+                    Target Role / Title
+                    <input id="jobSearchRole" type="text" placeholder="e.g. Python Developer, Full-Stack, React..." required>
+                </label>
+                <label>
+                    Location
+                    <input id="jobSearchLocation" type="text" placeholder="Remote, Worldwide, or City" value="Remote">
+                </label>
+                <label>
+                    Platform Filter
+                    <select id="jobSearchPlatform">
+                        <option value="all">All Platforms (Aggregated)</option>
+                        <option value="remoteok">RemoteOK</option>
+                        <option value="jobicy">Jobicy</option>
+                        <option value="arbeitnow">Arbeitnow</option>
+                    </select>
+                </label>
+                <div class="search-btn-container">
+                    <button type="submit" id="jobSearchBtn" class="primary-button">Search Jobs</button>
+                </div>
+            </div>
+        </form>
+
+        <!-- Direct 1-Click Platform Links Bar -->
+        <div id="platformLinksBar" class="platform-links-bar" style="display: none;">
+            <span class="links-title">Deep search directly on:</span>
+            <div id="platformLinksList" class="platform-chips-list"></div>
+        </div>
+
+        <div id="jobSearchResults" class="job-search-results" aria-live="polite">
+            <p class="muted-note">Enter a role above or use "Find Jobs for this Role" from your Resume Analysis to search live openings.</p>
+        </div>
+    </section>
+
+    <section id="applications">
+        <div class="section-heading">
+            <div>
+                <h2>My Applications</h2>
+                <p>Search, filter, and export your application history.</p>
+            </div>
+            <button id="exportCsv" class="secondary-button" type="button">
+                Export CSV
+            </button>
+        </div>
+
+        <form id="quick-add-form" class="quick-add-form">
+            <h3>Add an application</h3>
+            <label>
+                Company
+                <input name="company" type="text" maxlength="120" required>
+            </label>
+            <label>
+                Role
+                <input name="role" type="text" maxlength="120" required>
+            </label>
+            <label>
+                Skills
+                <input name="skills" type="text" placeholder="Optional">
+            </label>
+            <label>
+                Status
+                <select name="status">
+                    <option>Applied</option>
+                    <option>Interview</option>
+                    <option>Selected</option>
+                    <option>Rejected</option>
+                </select>
+            </label>
+            <button type="submit">Add application</button>
+            <p id="quick-add-message" class="form-message" aria-live="polite"></p>
+        </form>
+
+        <div class="application-filters">
+            <label>
+                <span class="visually-hidden">Search applications</span>
+                <input id="application-search" type="search"
+                       placeholder="Search company, role, or skills"
+                       aria-describedby="filter-help">
+            </label>
+            <label>
+                <span class="visually-hidden">Filter by status</span>
+                <select id="status-filter">
+                    <option value="">All statuses</option>
+                    <option>Applied</option>
+                    <option>Interview</option>
+                    <option>Selected</option>
+                    <option>Rejected</option>
+                </select>
+            </label>
+            <button id="clear-filters" class="text-button" type="button">
+                Clear filters
+            </button>
+        </div>
+        <p id="filter-help" class="filter-help">Showing all applications.</p>
+        <div id="applicationList" aria-live="polite">Loading applications...</div>
+    </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
