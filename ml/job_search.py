@@ -1,19 +1,19 @@
 import time
 import urllib.parse
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
+
 import requests
 
-# In-memory cache for API results: {cache_key: (timestamp, data)}
 _CACHE: Dict[str, Any] = {}
-CACHE_TTL = 300  # 5 minutes
+CACHE_TTL = 300
 
 HEADERS = {
     "User-Agent": "DevTrackAI-CareerPlatform/1.0 (Job Aggregator)",
-    "Accept": "application/json"
+    "Accept": "application/json",
 }
 
+
 def get_platform_search_links(role: str, location: str = "") -> List[Dict[str, str]]:
-    """Generate direct deep-link URLs to search on major job platforms."""
     query = role.strip()
     loc = location.strip() if location else "Remote"
     encoded_q = urllib.parse.quote_plus(query)
@@ -25,50 +25,50 @@ def get_platform_search_links(role: str, location: str = "") -> List[Dict[str, s
             "name": "LinkedIn Jobs",
             "icon": "linkedin",
             "url": f"https://www.linkedin.com/jobs/search/?keywords={encoded_q}&location={encoded_loc}",
-            "color": "#0a66c2"
+            "color": "#0a66c2",
         },
         {
             "platform": "Indeed",
             "name": "Indeed",
             "icon": "indeed",
             "url": f"https://www.indeed.com/jobs?q={encoded_q}&l={encoded_loc}",
-            "color": "#2164f3"
+            "color": "#2164f3",
         },
         {
             "platform": "Glassdoor",
             "name": "Glassdoor",
             "icon": "glassdoor",
             "url": f"https://www.glassdoor.com/Job/jobs.htm?sc.keyword={encoded_q}",
-            "color": "#0caa41"
+            "color": "#0caa41",
         },
         {
             "platform": "GoogleJobs",
             "name": "Google Jobs",
             "icon": "google",
             "url": f"https://www.google.com/search?q={encoded_q}+jobs+{encoded_loc}&ibp=htl;jobs",
-            "color": "#ea4335"
+            "color": "#ea4335",
         },
         {
             "platform": "Wellfound",
             "name": "Wellfound (AngelList)",
             "icon": "wellfound",
             "url": f"https://wellfound.com/jobs?role={encoded_q}",
-            "color": "#ff5a5f"
+            "color": "#ff5a5f",
         },
         {
             "platform": "WeWorkRemotely",
             "name": "We Work Remotely",
             "icon": "remote",
             "url": f"https://weworkremotely.com/remote-jobs/search?term={encoded_q}",
-            "color": "#e05342"
-        }
+            "color": "#e05342",
+        },
     ]
 
+
 def fetch_remoteok_jobs(keywords: List[str]) -> List[Dict[str, Any]]:
-    """Fetch and filter jobs from RemoteOK."""
     cache_key = "remoteok_all"
     now = time.time()
-    
+
     raw_jobs = []
     if cache_key in _CACHE and (now - _CACHE[cache_key][0] < CACHE_TTL):
         raw_jobs = _CACHE[cache_key][1]
@@ -77,7 +77,6 @@ def fetch_remoteok_jobs(keywords: List[str]) -> List[Dict[str, Any]]:
             resp = requests.get("https://remoteok.com/api", headers=HEADERS, timeout=6)
             if resp.status_code == 200:
                 data = resp.json()
-                # Skip first item if it's disclaimer / metadata
                 raw_jobs = [j for j in data if isinstance(j, dict) and j.get("position")]
                 _CACHE[cache_key] = (now, raw_jobs)
         except Exception:
@@ -89,7 +88,7 @@ def fetch_remoteok_jobs(keywords: List[str]) -> List[Dict[str, Any]]:
         company = job.get("company", "")
         tags = job.get("tags") or []
         location = job.get("location") or "Remote"
-        
+
         searchable = f"{title} {company} {' '.join(tags)}".lower()
         if any(kw.lower() in searchable for kw in keywords):
             url = job.get("url") or f"https://remoteok.com/l/{job.get('id', '')}"
@@ -110,18 +109,18 @@ def fetch_remoteok_jobs(keywords: List[str]) -> List[Dict[str, Any]]:
                 "url": url,
                 "tags": tags[:5],
                 "salary": salary,
-                "posted": job.get("date", "")[:10] if job.get("date") else "Recent"
+                "posted": job.get("date", "")[:10] if job.get("date") else "Recent",
             })
             if len(results) >= 20:
                 break
 
     return results
 
+
 def fetch_jobicy_jobs(keywords: List[str]) -> List[Dict[str, Any]]:
-    """Fetch and filter jobs from Jobicy."""
     cache_key = "jobicy_all"
     now = time.time()
-    
+
     raw_jobs = []
     if cache_key in _CACHE and (now - _CACHE[cache_key][0] < CACHE_TTL):
         raw_jobs = _CACHE[cache_key][1]
@@ -164,18 +163,18 @@ def fetch_jobicy_jobs(keywords: List[str]) -> List[Dict[str, Any]]:
                 "url": job.get("url", ""),
                 "tags": tags[:4],
                 "salary": salary,
-                "posted": (job.get("pubDate") or "")[:10] or "Recent"
+                "posted": (job.get("pubDate") or "")[:10] or "Recent",
             })
             if len(results) >= 20:
                 break
 
     return results
 
+
 def fetch_arbeitnow_jobs(keywords: List[str]) -> List[Dict[str, Any]]:
-    """Fetch and filter jobs from Arbeitnow."""
     cache_key = "arbeitnow_all"
     now = time.time()
-    
+
     raw_jobs = []
     if cache_key in _CACHE and (now - _CACHE[cache_key][0] < CACHE_TTL):
         raw_jobs = _CACHE[cache_key][1]
@@ -206,15 +205,15 @@ def fetch_arbeitnow_jobs(keywords: List[str]) -> List[Dict[str, Any]]:
                 "url": job.get("url", ""),
                 "tags": tags[:4],
                 "salary": "",
-                "posted": "Recent"
+                "posted": "Recent",
             })
             if len(results) >= 20:
                 break
 
     return results
 
+
 def get_curated_fallback_jobs(role: str) -> List[Dict[str, Any]]:
-    """High-quality fallback curated jobs in case APIs are unreachable."""
     role_title = role.title()
     return [
         {
@@ -225,7 +224,7 @@ def get_curated_fallback_jobs(role: str) -> List[Dict[str, Any]]:
             "url": f"https://www.linkedin.com/jobs/search/?keywords={urllib.parse.quote_plus(role)}",
             "tags": ["Remote", "Full-time", "Senior", "High-growth"],
             "salary": "$110,000 - $145,000",
-            "posted": "Today"
+            "posted": "Today",
         },
         {
             "title": f"{role_title}",
@@ -235,7 +234,7 @@ def get_curated_fallback_jobs(role: str) -> List[Dict[str, Any]]:
             "url": f"https://www.indeed.com/jobs?q={urllib.parse.quote_plus(role)}",
             "tags": ["Full-time", "Agile", "DevOps"],
             "salary": "$85,000 - $115,000",
-            "posted": "1 day ago"
+            "posted": "1 day ago",
         },
         {
             "title": f"Lead {role_title}",
@@ -245,33 +244,27 @@ def get_curated_fallback_jobs(role: str) -> List[Dict[str, Any]]:
             "url": f"https://wellfound.com/jobs?role={urllib.parse.quote_plus(role)}",
             "tags": ["Startup", "Equity", "Fast-paced"],
             "salary": "$130,000 - $170,000 + Equity",
-            "posted": "2 days ago"
-        }
+            "posted": "2 days ago",
+        },
     ]
 
+
 def search_role_jobs(role: str, location: str = "Remote", platform: str = "all") -> Dict[str, Any]:
-    """Search jobs across multiple platforms for a specified role."""
     clean_role = role.strip()
     if not clean_role:
         return {
             "query": "",
             "total_found": 0,
             "jobs": [],
-            "platform_links": []
+            "platform_links": [],
         }
 
-    # Extract keywords from the role
-    # E.g. "Python Full-Stack Developer" -> ["python", "full-stack", "developer", "fullstack"]
     keywords = [w for w in clean_role.lower().split() if len(w) > 2]
-    if "developer" in keywords and len(keywords) > 1:
-        # also prioritize specific technology like "python" or "frontend"
-        pass
     if not keywords:
         keywords = [clean_role.lower()]
 
     aggregated: List[Dict[str, Any]] = []
 
-    # Parallel or sequential fetch with try/except
     if platform in ("all", "remoteok"):
         try:
             aggregated.extend(fetch_remoteok_jobs(keywords))
@@ -290,11 +283,9 @@ def search_role_jobs(role: str, location: str = "Remote", platform: str = "all")
         except Exception:
             pass
 
-    # If no live results matched specifically, add curated positions
     if not aggregated:
         aggregated = get_curated_fallback_jobs(clean_role)
 
-    # Sort & deduplicate by company + title
     seen = set()
     unique_jobs = []
     for j in aggregated:
@@ -310,6 +301,5 @@ def search_role_jobs(role: str, location: str = "Remote", platform: str = "all")
         "location": location,
         "total_found": len(unique_jobs),
         "jobs": unique_jobs[:35],
-        "platform_links": platform_links
+        "platform_links": platform_links,
     }
-

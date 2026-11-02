@@ -24,8 +24,6 @@ body {
     font-family: 'Manrope', Arial, sans-serif;
 }
 
-/* NAVIGATION */
-
 .nav {
     height: 76px;
     border-bottom: 1px solid var(--line);
@@ -74,16 +72,12 @@ body {
     margin-right: 8px;
 }
 
-/* MAIN CONTAINER */
-
 .container {
     max-width: 1160px;
     margin: auto;
     padding: 0 24px;
     min-width: 0;
 }
-
-/* HERO SECTION */
 
 .hero {
     min-height: min(530px, 80vh);
@@ -151,8 +145,6 @@ body {
     background: #334155;
     color: white;
 }
-
-/* AI CARD */
 
 .hero-card {
     border: 1px solid var(--line);
@@ -222,8 +214,6 @@ body {
     border-radius: 20px;
 }
 
-/* SECTIONS */
-
 .section {
     padding: 65px 0;
     border-top: 1px solid var(--line);
@@ -249,8 +239,6 @@ body {
     color: var(--muted);
     max-width: 330px;
 }
-
-/* INPUTS AND BUTTONS */
 
 .recommend-form,
 .job-form {
@@ -335,8 +323,6 @@ select:focus {
     color: var(--lime);
 }
 
-/* ML RESULTS */
-
 .recommendations {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
@@ -373,8 +359,6 @@ select:focus {
     height: 100%;
     background: var(--lime);
 }
-
-/* JOB TRACKER */
 
 .job-form {
     margin-bottom: 20px;
@@ -438,8 +422,6 @@ th {
     font: 11px 'DM Mono';
 }
 
-/* FOOTER */
-
 footer {
     display: flex;
     justify-content: space-between;
@@ -448,8 +430,6 @@ footer {
     color: var(--muted);
     font-size: 9px;
 }
-
-/* RESPONSIVE DESIGN */
 
 @media (max-width: 720px) {
     .nav {

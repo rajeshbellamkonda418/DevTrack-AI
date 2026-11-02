@@ -1,6 +1,7 @@
 import os
 import sqlite3
 from pathlib import Path
+
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 import mysql.connector
@@ -9,27 +10,25 @@ from ml.model import recommend_jobs
 from ml.resume_analyzer import analyze_resume_for_role, extract_text_from_file
 from ml.job_search import search_role_jobs
 
-# Get the folder containing app.py
 BASE_DIR = Path(__file__).resolve().parent
 
-# Load .env explicitly
 env_path = BASE_DIR / ".env"
 load_dotenv(dotenv_path=env_path, override=False)
 
 app = Flask(__name__)
 DB_ERRORS = (Error, sqlite3.Error)
 
-# Home page
+
 @app.route("/")
 def home():
     return render_template("index.html")
 
-# Dashboard page
+
 @app.route("/dashboard")
 def dashboard():
     return render_template("dashboard.html")
 
-# READ: Get all applications
+
 class SQLiteCursor:
     def __init__(self, cursor, dictionary=False):
         self.cursor = cursor
@@ -104,6 +103,7 @@ def get_db():
         database=os.getenv("DB_NAME")
     )
 
+
 @app.route("/api/jobs", methods=["GET"])
 def get_jobs():
     try:
@@ -129,7 +129,6 @@ def get_jobs():
         return jsonify({"error": str(e)}), 500
 
 
-# CREATE: Add application
 @app.route("/api/jobs", methods=["POST"])
 def add_job():
     data = request.get_json(silent=True) or {}
@@ -173,7 +172,6 @@ def add_job():
         return jsonify({"error": str(e)}), 500
 
 
-# UPDATE: Change application status
 @app.route("/api/jobs/<int:job_id>", methods=["PUT"])
 def update_job(job_id):
     data = request.get_json(silent=True) or {}
@@ -206,7 +204,6 @@ def update_job(job_id):
         return jsonify({"error": str(e)}), 500
 
 
-# DELETE: Remove application
 @app.route("/api/jobs/<int:job_id>", methods=["DELETE"])
 def delete_job(job_id):
     try:
@@ -233,7 +230,6 @@ def delete_job(job_id):
         return jsonify({"error": str(e)}), 500
 
 
-# MACHINE LEARNING: Job recommendations
 @app.route("/api/recommend", methods=["POST"])
 def recommend():
     data = request.get_json(silent=True) or {}
@@ -249,14 +245,12 @@ def recommend():
     })
 
 
-# RESUME ANALYSIS: Analyze resume for target role
 @app.route("/api/analyze-resume", methods=["POST"])
 def analyze_resume():
     try:
         target_role = ""
         resume_text = ""
 
-        # Check if file upload (multipart/form-data)
         if "resume" in request.files:
             file = request.files["resume"]
             if not file or not file.filename:
@@ -265,7 +259,6 @@ def analyze_resume():
             target_role = (request.form.get("role") or "").strip()
             resume_text = extract_text_from_file(file.stream, file.filename)
         else:
-            # Check JSON body
             data = request.get_json(silent=True) or {}
             target_role = (data.get("role") or "").strip()
             resume_text = (data.get("resume_text") or "").strip()
@@ -285,7 +278,6 @@ def analyze_resume():
         return jsonify({"error": f"Failed to analyze resume: {str(e)}"}), 500
 
 
-# MULTI-PLATFORM JOB SEARCH: Search jobs for target role
 @app.route("/api/search-jobs", methods=["GET", "POST"])
 def search_jobs():
     try:
