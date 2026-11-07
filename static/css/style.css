@@ -550,6 +550,44 @@ body::before {
     flex-wrap: wrap;
 }
 
+.auth-form {
+    display: grid;
+    max-width: 460px;
+    gap: 10px;
+}
+
+.auth-form label {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.auth-form .button {
+    min-height: 47px;
+}
+
+.auth-switch {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.auth-switch-button {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--lime);
+    font: inherit;
+    cursor: pointer;
+}
+
+.auth-switch-button:hover {
+    text-decoration: underline;
+}
+
+.account-prompt {
+    margin: 0 0 18px;
+    color: var(--muted);
+}
+
 input,
 select {
     background: #111822;

@@ -6,7 +6,6 @@ import threading
 from datetime import timedelta
 from functools import wraps
 from pathlib import Path
-from urllib.parse import urlsplit
 
 from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 from dotenv import load_dotenv
@@ -24,15 +23,42 @@ BASE_DIR = Path(__file__).resolve().parent
 env_path = BASE_DIR / ".env"
 load_dotenv(dotenv_path=env_path, override=False)
 
+flask_secret_key = os.getenv("FLASK_SECRET_KEY")
+is_vercel = bool(os.getenv("VERCEL"))
+if not flask_secret_key and is_vercel:
+    raise RuntimeError(
+        "FLASK_SECRET_KEY must be configured in Vercel Project Settings > Environment Variables."
+    )
+
+db_backend = os.getenv("DB_BACKEND", "sqlite").lower()
+if is_vercel and db_backend != "mysql":
+    raise RuntimeError(
+        "Vercel requires a persistent MySQL database; configure DB_BACKEND=mysql and "
+        "set DB_HOST, DB_USER, DB_PASSWORD, and DB_NAME in Project Settings > Environment Variables."
+    )
+if is_vercel:
+    missing_db_settings = [
+        key for key in ("DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME")
+        if not os.getenv(key)
+    ]
+    if missing_db_settings:
+        raise RuntimeError(
+            "Missing required Vercel database environment variables: "
+            + ", ".join(missing_db_settings)
+            + ". Configure them in Project Settings > Environment Variables."
+        )
+
 app = Flask(__name__)
 app.config.update(
-    SECRET_KEY=os.getenv("FLASK_SECRET_KEY") or secrets.token_hex(32),
+    SECRET_KEY=flask_secret_key or secrets.token_hex(32),
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
-    SESSION_COOKIE_SECURE=os.getenv("SESSION_COOKIE_SECURE", "").lower() == "true",
+    SESSION_COOKIE_SECURE=os.getenv(
+        "SESSION_COOKIE_SECURE", "true" if is_vercel else "false"
+    ).lower() == "true",
     PERMANENT_SESSION_LIFETIME=timedelta(hours=12),
 )
-if not os.getenv("FLASK_SECRET_KEY"):
+if not flask_secret_key:
     logging.warning("FLASK_SECRET_KEY is not set; sessions will reset when the app restarts.")
 DB_ERRORS = (Error, sqlite3.Error)
 _mysql_auth_schema_initialized = False
@@ -45,24 +71,10 @@ def login_required(view):
         if "user_id" not in session:
             if request.path.startswith("/api/"):
                 return jsonify({"error": "Please sign in to continue"}), 401
-            return redirect(url_for("login", next=request.path))
+            return redirect(url_for("home", _anchor="account-access"))
         return view(*args, **kwargs)
 
     return wrapped
-
-
-def safe_redirect_target(target):
-    target = target or ""
-    parsed = urlsplit(target)
-    if (
-        parsed.scheme
-        or parsed.netloc
-        or not parsed.path.startswith("/")
-        or parsed.path.startswith("//")
-        or "\\" in target
-    ):
-        return url_for("dashboard")
-    return target
 
 
 def initialize_mysql_auth_schema(connection):
@@ -105,8 +117,6 @@ def initialize_mysql_auth_schema(connection):
 
 @app.route("/")
 def home():
-    if "user_id" not in session:
-        return redirect(url_for("login"))
     return render_template("index.html")
 
 
@@ -118,9 +128,7 @@ def dashboard():
 
 @app.route("/login")
 def login():
-    if "user_id" in session:
-        return redirect(url_for("dashboard"))
-    return render_template("login.html", next_url=safe_redirect_target(request.args.get("next")))
+    return redirect(url_for("home", _anchor="account-access"))
 
 
 class SQLiteCursor:
@@ -171,15 +179,12 @@ class SQLiteConnection:
 
 
 def get_db():
-    if os.getenv("DB_BACKEND", "mysql").lower() == "sqlite":
+    if os.getenv("DB_BACKEND", "sqlite").lower() == "sqlite":
         database_path = Path(
             os.getenv("SQLITE_PATH", str(BASE_DIR / "database" / "applications.sqlite3"))
         )
         database_path.parent.mkdir(parents=True, exist_ok=True)
-        connection = sqlite3.connect(
-            database_path,
-            detect_types=sqlite3.PARSE_DECLTYPES,
-        )
+        connection = sqlite3.connect(database_path)
         connection.row_factory = sqlite3.Row
         connection.execute("""
             CREATE TABLE IF NOT EXISTS users (
@@ -225,7 +230,7 @@ def get_db():
 
 @app.route("/api/auth/register", methods=["POST"])
 def api_register():
-    data = request.get_json(silent=True) or {}
+    data = request_json_object()
     name = data.get("name")
     password = data.get("password")
     if not isinstance(name, str) or not isinstance(password, str):
@@ -278,7 +283,7 @@ def api_register():
 
 @app.route("/api/auth/login", methods=["POST"])
 def api_login():
-    data = request.get_json(silent=True) or {}
+    data = request_json_object()
     name = data.get("name")
     password = data.get("password")
     if not isinstance(name, str) or not isinstance(password, str):
@@ -317,14 +322,22 @@ def api_login():
 @app.route("/api/auth/logout", methods=["POST"])
 def api_logout():
     session.clear()
-    return jsonify({"message": "Signed out", "redirect": url_for("login")})
+    return jsonify({
+        "message": "Signed out",
+        "redirect": url_for("home", _anchor="account-access"),
+    })
 
 
 @app.route("/logout", methods=["POST"])
 @login_required
 def logout():
     session.clear()
-    return redirect(url_for("login"))
+    return redirect(url_for("home", _anchor="account-access"))
+
+
+def request_json_object():
+    data = request.get_json(silent=True)
+    return data if isinstance(data, dict) else {}
 
 
 @app.route("/api/jobs", methods=["GET"])
@@ -346,7 +359,12 @@ def get_jobs():
 
         for job in jobs:
             if job["applied_date"]:
-                job["applied_date"] = job["applied_date"].isoformat()
+                applied_date = job["applied_date"]
+                job["applied_date"] = (
+                    applied_date.isoformat()
+                    if hasattr(applied_date, "isoformat")
+                    else str(applied_date)
+                )
 
         return jsonify(jobs)
 
@@ -357,15 +375,24 @@ def get_jobs():
 @app.route("/api/jobs", methods=["POST"])
 @login_required
 def add_job():
-    data = request.get_json(silent=True) or {}
+    data = request_json_object()
 
-    company = (data.get("company") or "").strip()
-    role = (data.get("role") or "").strip()
-    status = (data.get("status") or "Applied").strip()
-    skills = (data.get("skills") or "").strip()
+    company = data.get("company", "")
+    role = data.get("role", "")
+    status = data.get("status", "Applied")
+    skills = data.get("skills", "")
+    if not all(isinstance(value, str) for value in (company, role, status, skills)):
+        return jsonify({"error": "Company, role, status, and skills must be text"}), 400
+
+    company = company.strip()
+    role = role.strip()
+    status = status.strip()
+    skills = skills.strip()
 
     if not company or not role:
         return jsonify({"error": "Company and role are required"}), 400
+    if len(company) > 120 or len(role) > 120:
+        return jsonify({"error": "Company and role must be 120 characters or fewer"}), 400
 
     if status not in ["Applied", "Interview", "Selected", "Rejected"]:
         return jsonify({"error": "Invalid status"}), 400
@@ -401,8 +428,11 @@ def add_job():
 @app.route("/api/jobs/<int:job_id>", methods=["PUT"])
 @login_required
 def update_job(job_id):
-    data = request.get_json(silent=True) or {}
-    status = (data.get("status") or "").strip()
+    data = request_json_object()
+    status = data.get("status", "")
+    if not isinstance(status, str):
+        return jsonify({"error": "Status must be text"}), 400
+    status = status.strip()
 
     if status not in ["Applied", "Interview", "Selected", "Rejected"]:
         return jsonify({"error": "Invalid status"}), 400
@@ -460,9 +490,12 @@ def delete_job(job_id):
 
 @app.route("/api/recommend", methods=["POST"])
 def recommend():
-    data = request.get_json(silent=True) or {}
+    data = request_json_object()
 
-    skills = (data.get("skills") or "").strip()
+    skills = data.get("skills", "")
+    if not isinstance(skills, str):
+        return jsonify({"error": "Skills must be text"}), 400
+    skills = skills.strip()
     if not skills:
         return jsonify({"error": "Enter your skills"}), 400
 
@@ -487,9 +520,14 @@ def analyze_resume():
             target_role = (request.form.get("role") or "").strip()
             resume_text = extract_text_from_file(file.stream, file.filename)
         else:
-            data = request.get_json(silent=True) or {}
-            target_role = (data.get("role") or "").strip()
-            resume_text = (data.get("resume_text") or "").strip()
+            data = request_json_object()
+            target_role = data.get("role", "")
+            resume_text = data.get("resume_text", "")
+
+        if not isinstance(target_role, str) or not isinstance(resume_text, str):
+            return jsonify({"error": "Target role and resume text must be text"}), 400
+        target_role = target_role.strip()
+        resume_text = resume_text.strip()
 
         if not target_role:
             return jsonify({"error": "Target role is required for resume analysis"}), 400
@@ -510,11 +548,19 @@ def analyze_resume():
 def search_jobs():
     try:
         if request.method == "POST":
-            data = request.get_json(silent=True) or {}
-            role = (data.get("role") or "").strip()
-            location = (data.get("location") or "Remote").strip()
-            platform = (data.get("platform") or "all").strip().lower()
-            employment_type = (data.get("employment_type") or "all").strip().lower()
+            data = request_json_object()
+            fields = {
+                "role": data.get("role", ""),
+                "location": data.get("location", "Remote"),
+                "platform": data.get("platform", "all"),
+                "employment_type": data.get("employment_type", "all"),
+            }
+            if not all(isinstance(value, str) for value in fields.values()):
+                return jsonify({"error": "Search parameters must be text"}), 400
+            role = fields["role"].strip()
+            location = fields["location"].strip()
+            platform = fields["platform"].strip().lower()
+            employment_type = fields["employment_type"].strip().lower()
         else:
             role = (request.args.get("role") or "").strip()
             location = (request.args.get("location") or "Remote").strip()

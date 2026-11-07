@@ -55,6 +55,7 @@ function escapeHtml(value) {
 
 async function loadJobs() {
     const tbody = document.getElementById("jobs-list");
+    if (!tbody) return;
 
     try {
         const response = await fetch("/api/jobs");
@@ -103,7 +104,8 @@ async function loadJobs() {
     }
 }
 
-document.getElementById("job-form").addEventListener("submit", async event => {
+const jobForm = document.getElementById("job-form");
+jobForm?.addEventListener("submit", async event => {
     event.preventDefault();
 
     const formElement = event.currentTarget;
@@ -133,7 +135,7 @@ document.getElementById("job-form").addEventListener("submit", async event => {
     }
 });
 
-document.getElementById("jobs-list").addEventListener("change", async event => {
+document.getElementById("jobs-list")?.addEventListener("change", async event => {
     if (!event.target.matches(".status-select")) return;
 
     const id = event.target.dataset.id;
@@ -160,7 +162,7 @@ document.getElementById("jobs-list").addEventListener("change", async event => {
     }
 });
 
-document.getElementById("jobs-list").addEventListener("click", async event => {
+document.getElementById("jobs-list")?.addEventListener("click", async event => {
     const button = event.target.closest("[data-delete]");
 
     if (!button) return;
