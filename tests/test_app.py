@@ -33,6 +33,18 @@ class ApplicationTests(unittest.TestCase):
         self.assertEqual(favicon.mimetype, "image/svg+xml")
         favicon.close()
 
+        for asset in (
+            "css/style.css",
+            "css/dashboard.css",
+            "js/auth.js",
+            "js/script.js",
+            "js/dashboard.js",
+        ):
+            with self.subTest(asset=asset):
+                response = self.client.get(f"/static/{asset}")
+                self.assertEqual(response.status_code, 200)
+                response.close()
+
     def test_login_route_redirects_to_landing_page(self):
         response = self.client.get("/login")
 

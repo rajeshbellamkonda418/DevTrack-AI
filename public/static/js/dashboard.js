@@ -319,7 +319,7 @@ document.getElementById("exportCsv").addEventListener("click", () => {
     link.href = url;
     link.download = "devtrack-applications.csv";
     link.click();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 
 document.getElementById("recommend-form")

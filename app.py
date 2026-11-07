@@ -48,7 +48,7 @@ if is_vercel:
             + ". Configure them in Project Settings > Environment Variables."
         )
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="public/static")
 app.config.update(
     SECRET_KEY=flask_secret_key or secrets.token_hex(32),
     SESSION_COOKIE_HTTPONLY=True,
