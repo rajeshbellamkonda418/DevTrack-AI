@@ -7,7 +7,6 @@
     <title>DevTrack AI - Career Platform & Job Intelligence</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
     <script defer src="{{ url_for('static', filename='js/script.js') }}"></script>
 </head>
 
@@ -18,6 +17,11 @@
             <a href="/dashboard">Dashboard</a>
             <a href="/dashboard#resume-analyzer">Resume Analyzer</a>
             <a href="/dashboard#job-search">Job Search</a>
+            <a href="/dashboard#interview-prep">Interview Prep</a>
+            <a href="/dashboard#dsa-practice">DSA Practice</a>
+            <form class="nav-logout" action="/logout" method="post">
+                <button type="submit">Sign out</button>
+            </form>
             <span class="status-dot"></span>
             Career Workspace
         </div>
@@ -38,8 +42,11 @@
                 <div class="hero-actions">
                     <a class="primary-link" href="/dashboard#resume-analyzer">Analyze Resume 📄</a>
                     <a class="primary-link search-link" href="/dashboard#job-search">Search Jobs 🌐</a>
+                    <a class="primary-link" href="/dashboard#interview-prep">Practice Interviews ✨</a>
+                    <a class="primary-link" href="/dashboard#dsa-practice">Practice DSA 🧩</a>
                     <a class="primary-link dashboard-link" href="/dashboard">Dashboard ↘</a>
                 </div>
+                <p class="hero-note">A clear next step for every stage of your job search.</p>
             </div>
 
             <div class="hero-card">
@@ -56,10 +63,46 @@
                     <span>Resume ATS</span>
                     <span>Multi-Platform Jobs</span>
                 </div>
+                <div class="hero-stat-row" aria-label="Career practice tools">
+                    <div><strong>12</strong><span>interview domains</span></div>
+                    <div><strong>7</strong><span>DSA topics</span></div>
+                    <div><strong>1</strong><span>workspace</span></div>
+                </div>
             </div>
         </section>
 
-        <section class="section" id="recommend">
+        <section class="journey-section" aria-labelledby="journey-title">
+            <div class="journey-heading" data-reveal>
+                <p class="eyebrow">YOUR NEXT STEP</p>
+                <h2 id="journey-title">Build momentum, one step at a time.</h2>
+                <p>Pick up wherever you are in your career journey. Your workspace keeps the practical tools together.</p>
+            </div>
+            <div class="journey-grid">
+                <a class="journey-card" href="/dashboard#resume-analyzer" data-reveal>
+                    <span class="journey-number">01</span>
+                    <span class="journey-icon" aria-hidden="true">✦</span>
+                    <h3>Polish your profile</h3>
+                    <p>Check how your resume matches a role and get specific suggestions.</p>
+                    <span class="journey-link">Review resume <span aria-hidden="true">↗</span></span>
+                </a>
+                <a class="journey-card journey-card-featured" href="/dashboard#interview-prep" data-reveal>
+                    <span class="journey-number">02</span>
+                    <span class="journey-icon" aria-hidden="true">◎</span>
+                    <h3>Practice with focus</h3>
+                    <p>Choose an interview domain and level, then work through sample answers.</p>
+                    <span class="journey-link">Explore interview prep <span aria-hidden="true">↗</span></span>
+                </a>
+                <a class="journey-card" href="/dashboard#dsa-practice" data-reveal>
+                    <span class="journey-number">03</span>
+                    <span class="journey-icon" aria-hidden="true">⌘</span>
+                    <h3>Strengthen your skills</h3>
+                    <p>Solve coding problems at the difficulty and topic you choose.</p>
+                    <span class="journey-link">Open DSA practice <span aria-hidden="true">↗</span></span>
+                </a>
+            </div>
+        </section>
+
+        <section class="section" id="recommend" data-reveal>
             <div class="section-heading">
                 <div>
                     <p class="eyebrow">01 / DISCOVER</p>
@@ -100,10 +143,49 @@
             <div id="recommendations" class="recommendations"></div>
         </section>
 
-        <section class="section" id="tracker">
+        <section class="section" id="live-jobs" data-reveal>
             <div class="section-heading">
                 <div>
-                    <p class="eyebrow">02 / ORGANIZE</p>
+                    <p class="eyebrow">02 / OPPORTUNITIES</p>
+                    <h2>Explore live jobs</h2>
+                </div>
+                <p class="muted">Search current listings by role, location, and opportunity type.</p>
+            </div>
+
+            <form id="home-job-search-form" class="home-job-search-form">
+                <label>
+                    Role
+                    <input id="home-job-role" type="search" value="Python Developer" required>
+                </label>
+                <label>
+                    Location
+                    <input id="home-job-location" type="text" value="Remote">
+                </label>
+                <label>
+                    Opportunity type
+                    <select id="home-job-type">
+                        <option value="all">All opportunities</option>
+                        <option value="fresher">Fresher / Entry-level</option>
+                        <option value="internship">Internship</option>
+                        <option value="part_time">Part-time</option>
+                        <option value="freelance">Freelance / Contract</option>
+                    </select>
+                </label>
+                <button class="button" type="submit">Find Jobs ↗</button>
+            </form>
+
+            <div id="home-job-links" class="home-job-links" hidden>
+                <span>Search directly on:</span>
+                <div id="home-job-link-list" class="home-job-link-list"></div>
+            </div>
+            <p id="home-job-message" class="message" aria-live="polite">Loading current job listings...</p>
+            <div id="home-job-results" class="home-job-results" aria-live="polite"></div>
+        </section>
+
+        <section class="section" id="tracker" data-reveal>
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">03 / ORGANIZE</p>
                     <h2>Application Tracker</h2>
                 </div>
                 <p class="muted">Manage your job applications in one place.</p>
@@ -147,7 +229,7 @@
 
         <footer>
             <span class="brand">DevTrack<span>AI</span></span>
-            <span>Built with Flask · MySQL · Scikit-learn · GSAP</span>
+            <span class="creator-credit">Developed by <span class="creator-name">Rajesh</span></span>
         </footer>
     </main>
 </body>

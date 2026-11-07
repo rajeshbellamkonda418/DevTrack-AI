@@ -1,3 +1,51 @@
+const dashboardSections = [...document.querySelectorAll("[data-dashboard-section]")];
+const dashboardSectionLinks = [...document.querySelectorAll("[data-dashboard-target]")];
+
+function showDashboardSection(sectionId) {
+    const section = dashboardSections.find(item => item.id === sectionId);
+    if (!section) return false;
+
+    dashboardSections.forEach(item => {
+        item.hidden = item !== section;
+        item.classList.remove("dashboard-section-entering");
+    });
+    dashboardSectionLinks.forEach(link => {
+        if (link.dataset.dashboardTarget === sectionId) {
+            link.setAttribute("aria-current", "page");
+        } else {
+            link.removeAttribute("aria-current");
+        }
+    });
+    if (animationsEnabled()) {
+        requestAnimationFrame(() => {
+            if (!section.hidden) {
+                section.classList.add("dashboard-section-entering");
+            }
+        });
+    }
+    return true;
+}
+
+dashboardSectionLinks.forEach(link => {
+    link.addEventListener("click", event => {
+        const sectionId = link.dataset.dashboardTarget;
+        if (!showDashboardSection(sectionId)) return;
+        event.preventDefault();
+        if (window.location.hash !== `#${sectionId}`) {
+            window.history.pushState(null, "", `#${sectionId}`);
+        }
+    });
+});
+
+window.addEventListener("popstate", () => {
+    showDashboardSection(window.location.hash.slice(1) || "overview");
+});
+
+const initialSection = window.location.hash.slice(1) || "overview";
+if (!showDashboardSection(initialSection)) {
+    showDashboardSection("overview");
+}
+
 const applicationList = document.getElementById("applicationList");
 const statuses = ["Applied", "Interview", "Selected", "Rejected"];
 const skillsInput = document.getElementById("skills-input");
@@ -233,6 +281,7 @@ document.getElementById("quick-add-form")
                 throw new Error("Application was added, but the dashboard could not refresh.");
             }
             message.textContent = "Application added.";
+            showDashboardSection("applications");
             document.getElementById("applications").scrollIntoView({
                 behavior: animationsEnabled() ? "smooth" : "auto",
                 block: "start"
@@ -654,6 +703,8 @@ function renderResumeAnalysis(data) {
             const jobSearchRole = document.getElementById("jobSearchRole");
             if (jobSearchRole) {
                 jobSearchRole.value = data.target_role;
+                updateSalarySnapshot();
+                showDashboardSection("job-search");
                 document.getElementById("job-search").scrollIntoView({ behavior: "smooth" });
                 executeJobSearch(data.target_role, "Remote", "all");
             }
@@ -702,10 +753,146 @@ const jobSearchForm = document.getElementById("jobSearchForm");
 const jobSearchRole = document.getElementById("jobSearchRole");
 const jobSearchLocation = document.getElementById("jobSearchLocation");
 const jobSearchPlatform = document.getElementById("jobSearchPlatform");
+const jobSearchType = document.getElementById("jobSearchType");
 const jobSearchBtn = document.getElementById("jobSearchBtn");
 const platformLinksBar = document.getElementById("platformLinksBar");
 const platformLinksList = document.getElementById("platformLinksList");
 const jobSearchResults = document.getElementById("jobSearchResults");
+const salaryExperience = document.getElementById("salaryExperience");
+const salaryRoleLabel = document.getElementById("salaryRoleLabel");
+const salaryRange = document.getElementById("salaryRange");
+const salaryRangeBar = document.getElementById("salaryRangeBar");
+
+const salaryBenchmarks = [
+    {
+        match: /machine learning|ml engineer|artificial intelligence|\bai engineer\b|ai application/,
+        label: "Machine Learning Engineer",
+        ranges: { entry: [600000, 1200000], mid: [1200000, 2500000], senior: [2200000, 4500000] }
+    },
+    {
+        match: /data analyst|business intelligence|\bbi analyst\b/,
+        label: "Data Analyst",
+        ranges: { entry: [400000, 800000], mid: [800000, 1500000], senior: [1400000, 2500000] }
+    },
+    {
+        match: /data engineer|analytics engineer/,
+        label: "Data Engineer",
+        ranges: { entry: [600000, 1200000], mid: [1200000, 2400000], senior: [2200000, 4000000] }
+    },
+    {
+        match: /cybersecurity|security analyst|security engineer/,
+        label: "Cybersecurity Specialist",
+        ranges: { entry: [450000, 900000], mid: [900000, 1800000], senior: [1600000, 3200000] }
+    },
+    {
+        match: /ui.?ux|product designer|ux designer/,
+        label: "Product / UX Designer",
+        ranges: { entry: [400000, 800000], mid: [800000, 1600000], senior: [1500000, 2800000] }
+    },
+    {
+        match: /\bgo backend\b/,
+        label: "Go Backend Developer",
+        ranges: { entry: [600000, 1200000], mid: [1200000, 2500000], senior: [2200000, 4500000] }
+    },
+    {
+        match: /frontend|front.end|react developer|web developer/,
+        label: "Frontend Developer",
+        ranges: { entry: [450000, 900000], mid: [900000, 1800000], senior: [1600000, 3000000] }
+    },
+    {
+        match: /backend|back.end|api developer/,
+        label: "Backend Developer",
+        ranges: { entry: [500000, 1000000], mid: [1000000, 2200000], senior: [1800000, 3800000] }
+    },
+    {
+        match: /full.?stack/,
+        label: "Full-Stack Developer",
+        ranges: { entry: [450000, 900000], mid: [900000, 2000000], senior: [1700000, 3500000] }
+    },
+    {
+        match: /devops|cloud engineer|site reliability|\bsre\b/,
+        label: "Cloud / DevOps Engineer",
+        ranges: { entry: [550000, 1100000], mid: [1100000, 2300000], senior: [2000000, 4000000] }
+    },
+    {
+        match: /qa|quality assurance|test automation/,
+        label: "QA Automation Engineer",
+        ranges: { entry: [350000, 700000], mid: [700000, 1400000], senior: [1200000, 2400000] }
+    },
+    {
+        match: /mobile|ios developer|android developer/,
+        label: "Mobile Developer",
+        ranges: { entry: [450000, 900000], mid: [900000, 2000000], senior: [1800000, 3500000] }
+    },
+    {
+        match: /c\+\+|systems developer|systems engineer|rust|golang/,
+        label: "Systems Engineer",
+        ranges: { entry: [500000, 1200000], mid: [1200000, 2500000], senior: [2200000, 4500000] }
+    },
+    {
+        match: /python/,
+        label: "Python Developer",
+        ranges: { entry: [450000, 900000], mid: [900000, 2000000], senior: [1800000, 3500000] }
+    },
+    {
+        match: /java/,
+        label: "Java Developer",
+        ranges: { entry: [450000, 900000], mid: [900000, 2000000], senior: [1800000, 3500000] }
+    },
+    {
+        match: /\.net|dotnet/,
+        label: ".NET Developer",
+        ranges: { entry: [400000, 800000], mid: [800000, 1700000], senior: [1500000, 3000000] }
+    },
+    {
+        match: /javascript|node\.?js/,
+        label: "JavaScript Developer",
+        ranges: { entry: [450000, 900000], mid: [900000, 2000000], senior: [1700000, 3500000] }
+    },
+    {
+        match: /\bgo\b/,
+        label: "Go Developer",
+        ranges: { entry: [600000, 1200000], mid: [1200000, 2500000], senior: [2200000, 4500000] }
+    },
+    {
+        match: /php/,
+        label: "PHP Developer",
+        ranges: { entry: [350000, 700000], mid: [700000, 1500000], senior: [1300000, 2500000] }
+    },
+    {
+        match: /custom/,
+        label: "Software Engineer",
+        ranges: { entry: [400000, 800000], mid: [800000, 1800000], senior: [1500000, 3000000] }
+    },
+    {
+        match: /developer|engineer/,
+        label: "Software Engineer",
+        ranges: { entry: [400000, 800000], mid: [800000, 1800000], senior: [1500000, 3000000] }
+    },
+];
+
+function updateSalarySnapshot() {
+    const role = jobSearchRole.value.trim();
+    const normalizedRole = role.toLowerCase();
+    const benchmark = salaryBenchmarks.find(item => item.match.test(normalizedRole))
+        || salaryBenchmarks[salaryBenchmarks.length - 1];
+    const experience = salaryExperience.value;
+    const [minimum, maximum] = benchmark.ranges[experience];
+    const experienceLabel = salaryExperience.selectedOptions[0].textContent;
+    const formatSalary = amount => {
+        const lakhs = amount / 100000;
+        return `${lakhs % 1 === 0 ? lakhs : lakhs.toFixed(1)}L`;
+    };
+
+    salaryRoleLabel.textContent = `${role || benchmark.label} · ${experienceLabel}`;
+    salaryRange.textContent = `₹${formatSalary(minimum)}–${formatSalary(maximum)} per year`;
+    salaryRangeBar.style.left = `${Math.max(0, ((minimum - 300000) / 5000000) * 100)}%`;
+    salaryRangeBar.style.width = `${Math.min(100, ((maximum - minimum) / 5000000) * 100)}%`;
+}
+
+jobSearchRole.addEventListener("input", updateSalarySnapshot);
+salaryExperience.addEventListener("change", updateSalarySnapshot);
+updateSalarySnapshot();
 
 if (jobSearchForm) {
     jobSearchForm.addEventListener("submit", event => {
@@ -713,12 +900,18 @@ if (jobSearchForm) {
         const role = jobSearchRole.value.trim();
         const location = jobSearchLocation.value.trim() || "Remote";
         const platform = jobSearchPlatform.value;
+        const employmentType = jobSearchType.value;
         if (!role) return;
-        executeJobSearch(role, location, platform);
+        executeJobSearch(role, location, platform, employmentType);
     });
 }
 
-async function executeJobSearch(role, location = "Remote", platform = "all") {
+async function executeJobSearch(
+    role,
+    location = "Remote",
+    platform = "all",
+    employmentType = "all"
+) {
     if (!jobSearchResults) return;
     jobSearchResults.innerHTML = '<p class="muted-note">Searching live jobs across platforms...</p>';
     if (jobSearchBtn) {
@@ -727,7 +920,12 @@ async function executeJobSearch(role, location = "Remote", platform = "all") {
     }
 
     try {
-        const queryParams = new URLSearchParams({ role, location, platform });
+        const queryParams = new URLSearchParams({
+            role,
+            location,
+            platform,
+            employment_type: employmentType
+        });
         const response = await fetch(`/api/search-jobs?${queryParams}`);
         const data = await response.json();
 
@@ -737,7 +935,10 @@ async function executeJobSearch(role, location = "Remote", platform = "all") {
 
         renderJobSearchResults(data);
     } catch (err) {
-        jobSearchResults.innerHTML = `<p class="muted-note error">${err.message}</p>`;
+        const message = document.createElement("p");
+        message.className = "muted-note error";
+        message.textContent = err.message;
+        jobSearchResults.replaceChildren(message);
     } finally {
         if (jobSearchBtn) {
             jobSearchBtn.disabled = false;
@@ -748,16 +949,25 @@ async function executeJobSearch(role, location = "Remote", platform = "all") {
 
 function renderJobSearchResults(data) {
     if (platformLinksBar && platformLinksList && data.platform_links) {
-        platformLinksList.innerHTML = data.platform_links.map(pl => `
-            <a href="${pl.url}" target="_blank" rel="noopener noreferrer" class="platform-chip">
-                <span>${pl.name}</span> ↗
-            </a>
-        `).join("");
+        const links = data.platform_links.filter(platform => isHttpUrl(platform.url)).map(platform => {
+            const link = document.createElement("a");
+            link.className = "platform-chip";
+            link.href = platform.url;
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+            link.textContent = `${platform.name} ↗`;
+            return link;
+        });
+        platformLinksList.replaceChildren(...links);
         platformLinksBar.style.display = "flex";
     }
 
     if (!data.jobs || !data.jobs.length) {
-        jobSearchResults.innerHTML = `<p class="muted-note">No live postings found matching "${data.query}". Use the direct platform links above to search on LinkedIn, Indeed, and Glassdoor!</p>`;
+        const message = document.createElement("p");
+        message.className = "muted-note";
+        message.textContent =
+            `No live postings found matching "${data.query}". Use the direct platform links above to search on LinkedIn, Indeed, and Glassdoor!`;
+        jobSearchResults.replaceChildren(message);
         return;
     }
 
@@ -769,34 +979,67 @@ function renderJobSearchResults(data) {
         card.className = "job-card";
 
         const platformSlug = (job.platform || "remoteok").toLowerCase().replace(/[^a-z]/g, "");
-        const tagsHtml = (job.tags || []).map(t => `<span class="job-tag">${t}</span>`).join("");
-        const salaryBadge = job.salary ? `<span class="job-tag" style="color:#a7f3d0; border-color:#059669;">💰 ${job.salary}</span>` : "";
+        const topRow = document.createElement("div");
+        topRow.className = "job-card-top";
+        const platformBadge = document.createElement("span");
+        platformBadge.className = `job-platform-badge platform-${platformSlug}`;
+        platformBadge.textContent = job.platform || "Job board";
+        const posted = document.createElement("span");
+        posted.textContent = job.posted || "Recent";
+        topRow.append(platformBadge, posted);
 
-        card.innerHTML = `
-            <div class="job-card-top">
-                <span class="job-platform-badge platform-${platformSlug}">${job.platform}</span>
-                <span style="font-size: 11px; color: #94a3b8;">${job.posted || "Recent"}</span>
-            </div>
-            <div>
-                <h3>${job.title}</h3>
-                <div class="job-company">${job.company}</div>
-            </div>
-            <div class="job-details-row">
-                <span>📍 ${job.location || "Remote"}</span>
-                ${salaryBadge}
-            </div>
-            <div class="job-tags-row">
-                ${tagsHtml}
-            </div>
-            <div class="job-card-actions">
-                <a href="${job.url}" target="_blank" rel="noopener noreferrer" class="job-apply-link">Apply ↗</a>
-                <button type="button" class="job-track-btn">Track in DevTrack +</button>
-            </div>
-        `;
+        const title = document.createElement("h3");
+        title.textContent = job.title || "Untitled role";
+        const company = document.createElement("div");
+        company.className = "job-company";
+        company.textContent = job.company || "Company not listed";
 
-        const trackBtn = card.querySelector(".job-track-btn");
+        const details = document.createElement("div");
+        details.className = "job-details-row";
+        const location = document.createElement("span");
+        location.textContent = `📍 ${job.location || "Remote"}`;
+        details.appendChild(location);
+        if (job.salary) {
+            const salary = document.createElement("span");
+            salary.className = "job-tag job-salary";
+            salary.textContent = `💰 ${job.salary}`;
+            details.appendChild(salary);
+        }
+
+        const tags = document.createElement("div");
+        tags.className = "job-tags-row";
+        (job.tags || []).forEach(tag => {
+            const tagElement = document.createElement("span");
+            tagElement.className = "job-tag";
+            tagElement.textContent = tag;
+            tags.appendChild(tagElement);
+        });
+
+        const actions = document.createElement("div");
+        actions.className = "job-card-actions";
+        if (isHttpUrl(job.url)) {
+            const applyLink = document.createElement("a");
+            applyLink.className = "job-apply-link";
+            applyLink.href = job.url;
+            applyLink.target = "_blank";
+            applyLink.rel = "noopener noreferrer";
+            applyLink.textContent = "Apply ↗";
+            actions.appendChild(applyLink);
+        }
+        const trackBtn = document.createElement("button");
+        trackBtn.type = "button";
+        trackBtn.className = "job-track-btn";
+        trackBtn.textContent = "Track in DevTrack +";
+        actions.appendChild(trackBtn);
+
+        card.append(topRow, title, company, details, tags, actions);
         trackBtn.addEventListener("click", async () => {
-            await handleTrackJob(trackBtn, job.company, job.title, (job.tags || []).join(", "));
+            await handleTrackJob(
+                trackBtn,
+                job.company || "Unknown company",
+                job.title || "Untitled role",
+                (job.tags || []).join(", ")
+            );
         });
 
         cardsContainer.appendChild(card);
@@ -805,6 +1048,14 @@ function renderJobSearchResults(data) {
     jobSearchResults.replaceChildren(cardsContainer);
     if (window.gsap && animationsEnabled()) {
         animateIn(cardsContainer.querySelectorAll(".job-card"));
+    }
+}
+
+function isHttpUrl(value) {
+    try {
+        return ["http:", "https:"].includes(new URL(value).protocol);
+    } catch {
+        return false;
     }
 }
 
@@ -837,4 +1088,421 @@ async function handleTrackJob(btn, company, role, skills) {
         btn.textContent = "Retry Tracking";
         alert(`Error tracking job: ${err.message}`);
     }
+}
+
+const interviewQuestionForm = document.getElementById("interview-question-form");
+const interviewTopic = document.getElementById("interview-topic");
+const interviewLevel = document.getElementById("interview-level");
+const interviewQuestionList = document.getElementById("interview-question-list");
+const interviewQuestionCount = document.getElementById("interview-question-count");
+let interviewQuestionRequest = 0;
+
+function renderInterviewQuestions(questions) {
+    interviewQuestionList.replaceChildren();
+
+    if (!questions.length) {
+        interviewQuestionCount.textContent = "No questions found for this selection.";
+        return;
+    }
+
+    interviewQuestionCount.textContent =
+        `${questions.length} ${interviewTopic.selectedOptions[0].textContent} ${interviewLevel.value} questions. Think through each one before revealing the sample answer.`;
+
+    const cards = document.createDocumentFragment();
+    questions.forEach((item, index) => {
+        const card = document.createElement("article");
+        card.className = "interview-question-card";
+
+        const meta = document.createElement("div");
+        meta.className = "interview-question-meta";
+        const topic = document.createElement("span");
+        topic.textContent = item.topic_name;
+        const level = document.createElement("span");
+        level.className = `question-level level-${item.level}`;
+        level.textContent = item.level;
+        meta.append(topic, level);
+
+        const heading = document.createElement("h3");
+        heading.textContent = `${index + 1}. ${item.question}`;
+
+        const answer = document.createElement("div");
+        answer.className = "interview-answer";
+        answer.hidden = true;
+        const codeBlockPattern = /```([a-zA-Z0-9_-]*)\r?\n([\s\S]*?)```/g;
+        let lastAnswerIndex = 0;
+        let codeBlock;
+        while ((codeBlock = codeBlockPattern.exec(item.answer)) !== null) {
+            answer.appendChild(
+                document.createTextNode(item.answer.slice(lastAnswerIndex, codeBlock.index))
+            );
+            const pre = document.createElement("pre");
+            const code = document.createElement("code");
+            code.className = codeBlock[1] ? `language-${codeBlock[1]}` : "";
+            code.textContent = codeBlock[2].trimEnd();
+            pre.appendChild(code);
+            answer.appendChild(pre);
+            lastAnswerIndex = codeBlockPattern.lastIndex;
+        }
+        if (lastAnswerIndex) {
+            answer.appendChild(document.createTextNode(item.answer.slice(lastAnswerIndex)));
+        } else {
+            answer.textContent = item.answer;
+        }
+
+        const reveal = document.createElement("button");
+        reveal.type = "button";
+        reveal.className = "text-button reveal-answer";
+        reveal.textContent = "Reveal sample answer";
+        reveal.setAttribute("aria-expanded", "false");
+        reveal.addEventListener("click", () => {
+            answer.hidden = !answer.hidden;
+            reveal.textContent = answer.hidden ? "Reveal sample answer" : "Hide sample answer";
+            reveal.setAttribute("aria-expanded", String(!answer.hidden));
+        });
+
+        card.append(meta, heading, reveal, answer);
+        cards.appendChild(card);
+    });
+
+    interviewQuestionList.replaceChildren(cards);
+}
+
+async function loadInterviewQuestions() {
+    const submitButton = interviewQuestionForm.querySelector('button[type="submit"]');
+    if (!interviewTopic.value || !interviewLevel.value) {
+        interviewQuestionCount.textContent = "Select both a domain and a level to load questions.";
+        interviewQuestionList.replaceChildren();
+        return;
+    }
+
+    const requestId = ++interviewQuestionRequest;
+    const selectedTopic = interviewTopic.value;
+    const selectedLevel = interviewLevel.value;
+    submitButton.disabled = true;
+    submitButton.textContent = "Loading...";
+    interviewQuestionCount.textContent = "Loading interview questions...";
+    interviewQuestionList.replaceChildren();
+
+    try {
+        const params = new URLSearchParams({
+            topic: selectedTopic,
+            level: selectedLevel
+        });
+        const response = await fetch(`/api/interview-questions?${params}`);
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || "Could not load interview questions.");
+        }
+        if (requestId !== interviewQuestionRequest) return;
+        renderInterviewQuestions(data.questions);
+    } catch (error) {
+        if (requestId === interviewQuestionRequest) {
+            interviewQuestionCount.textContent = error.message;
+            interviewQuestionCount.classList.add("error");
+        }
+    } finally {
+        if (requestId === interviewQuestionRequest) {
+            submitButton.textContent = "Load selected questions";
+            submitButton.disabled = !interviewTopic.value || !interviewLevel.value;
+        }
+    }
+}
+
+if (interviewQuestionForm) {
+    interviewQuestionForm.addEventListener("submit", event => {
+        event.preventDefault();
+        interviewQuestionCount.classList.remove("error");
+        loadInterviewQuestions();
+    });
+    const updateInterviewSelection = () => {
+        interviewQuestionRequest += 1;
+        interviewQuestionList.replaceChildren();
+        interviewQuestionCount.textContent = "Load questions for your selected domain and level.";
+        interviewQuestionCount.classList.remove("error");
+        interviewQuestionForm.querySelector('button[type="submit"]').disabled =
+            !interviewTopic.value || !interviewLevel.value;
+    };
+    interviewTopic.addEventListener("change", updateInterviewSelection);
+    interviewLevel.addEventListener("change", updateInterviewSelection);
+}
+
+const dsaFilterForm = document.getElementById("dsa-filter-form");
+const dsaTopic = document.getElementById("dsa-topic");
+const dsaDifficulty = document.getElementById("dsa-difficulty");
+const dsaProgress = document.getElementById("dsa-progress");
+const dsaEncouragement = document.getElementById("dsa-encouragement");
+const dsaProblemPanel = document.getElementById("dsa-problem-panel");
+const dsaSolvedStorageKey = "devtrack-dsa-solved";
+let dsaQuestions = [];
+let solvedDsaQuestions = new Set();
+let dsaProgressStorageAvailable = true;
+
+function loadDsaProgress() {
+    try {
+        const savedIds = JSON.parse(localStorage.getItem(dsaSolvedStorageKey) || "[]");
+        if (!Array.isArray(savedIds) || !savedIds.every(id => typeof id === "string")) {
+            throw new Error("Saved DSA progress has an invalid format.");
+        }
+        const validIds = new Set(dsaQuestions.map(question => question.id));
+        solvedDsaQuestions = new Set(savedIds.filter(id => validIds.has(id)));
+    } catch (error) {
+        dsaProgressStorageAvailable = false;
+        console.error("Could not load saved DSA progress.", error);
+    }
+}
+
+function updateDsaProgressMessage() {
+    const savedMessage = dsaProgressStorageAvailable
+        ? ""
+        : " Progress could not be loaded from this browser.";
+    dsaProgress.textContent =
+        `${solvedDsaQuestions.size} of ${dsaQuestions.length} problems solved.${savedMessage}`;
+}
+
+function getFilteredDsaQuestions() {
+    const levelOrder = { basic: 0, intermediate: 1, advanced: 2 };
+    return dsaQuestions.filter(question =>
+        (dsaTopic.value === "all" || question.topic === dsaTopic.value)
+        && (dsaDifficulty.value === "all" || question.difficulty === dsaDifficulty.value)
+    ).sort((first, second) =>
+        levelOrder[first.difficulty] - levelOrder[second.difficulty]
+    );
+}
+
+function updateDsaProblemList() {
+    if (!dsaTopic.value || !dsaDifficulty.value) {
+        dsaProblemPanel.textContent =
+            "Choose a topic and difficulty, then load the matching problems.";
+        return;
+    }
+
+    const questions = getFilteredDsaQuestions();
+    dsaProblemPanel.replaceChildren();
+
+    if (!questions.length) {
+        dsaProblemPanel.textContent = "No problems match these filters.";
+        return;
+    }
+
+    ["basic", "intermediate", "advanced"].forEach(level => {
+        const levelQuestions = questions.filter(question => question.difficulty === level);
+        if (!levelQuestions.length) return;
+
+        const levelSection = document.createElement("section");
+        levelSection.className = "dsa-level-section";
+        const levelHeading = document.createElement("h3");
+        levelHeading.textContent =
+            `${level[0].toUpperCase()}${level.slice(1)} — ${levelQuestions.filter(question => solvedDsaQuestions.has(question.id)).length}/${levelQuestions.length} solved`;
+        levelSection.appendChild(levelHeading);
+
+        const questionList = document.createElement("div");
+        questionList.className = "dsa-question-list";
+        levelQuestions.forEach(question => {
+            renderDsaProblem(question, questionList);
+        });
+        levelSection.appendChild(questionList);
+        dsaProblemPanel.appendChild(levelSection);
+    });
+}
+
+function renderDsaProblem(question, container) {
+    const card = document.createElement("article");
+    card.className = "dsa-question-card";
+    const header = document.createElement("div");
+    header.className = "dsa-problem-header";
+    const heading = document.createElement("h3");
+    heading.textContent = question.title;
+    const difficulty = document.createElement("span");
+    difficulty.className = `question-level level-${question.difficulty}`;
+    difficulty.textContent = question.difficulty;
+    header.append(heading, difficulty);
+
+    const scenario = document.createElement("p");
+    scenario.className = "dsa-scenario";
+    scenario.textContent = question.scenario;
+
+    const examples = document.createElement("div");
+    examples.className = "dsa-examples";
+    [
+        ["Example input", question.input_example],
+        ["Expected output", question.output_example]
+    ].forEach(([label, value]) => {
+        const example = document.createElement("div");
+        const exampleHeading = document.createElement("h4");
+        exampleHeading.textContent = label;
+        const exampleCode = document.createElement("pre");
+        exampleCode.textContent = value;
+        example.append(exampleHeading, exampleCode);
+        examples.appendChild(example);
+    });
+
+    const hint = document.createElement("details");
+    hint.className = "dsa-reveal";
+    const hintSummary = document.createElement("summary");
+    hintSummary.textContent = "Show hint";
+    const hintText = document.createElement("p");
+    hintText.textContent = question.hint;
+    hint.append(hintSummary, hintText);
+
+    const editorDetails = document.createElement("details");
+    editorDetails.className = "dsa-reveal dsa-editor";
+    const editorSummary = document.createElement("summary");
+    editorSummary.textContent = "Open Python editor";
+    editorDetails.appendChild(editorSummary);
+
+    const editorLabel = document.createElement("label");
+    editorLabel.className = "dsa-editor-label";
+    editorLabel.textContent = "Your Python solution";
+    const editor = document.createElement("textarea");
+    editor.className = "dsa-code-editor";
+    editor.rows = 12;
+    editor.spellcheck = false;
+    editor.autocapitalize = "off";
+    editor.autocomplete = "off";
+    editor.setAttribute("aria-label", `Your Python solution for ${question.title}`);
+    editor.placeholder = "Write your solution here, then test it locally with the example.";
+    editor.readOnly = solvedDsaQuestions.has(question.id);
+
+    const savedDraftMessage = document.createElement("p");
+    savedDraftMessage.className = "dsa-draft-message";
+    try {
+        editor.value = localStorage.getItem(`devtrack-dsa-draft-${question.id}`) || "";
+    } catch (error) {
+        console.error("Could not load the saved DSA draft.", error);
+        savedDraftMessage.textContent = "This browser does not allow saved drafts.";
+    }
+    editor.addEventListener("input", () => {
+        try {
+            localStorage.setItem(`devtrack-dsa-draft-${question.id}`, editor.value);
+            savedDraftMessage.textContent = "Draft saved in this browser.";
+        } catch (error) {
+            console.error("Could not save the DSA draft.", error);
+            savedDraftMessage.textContent = "Could not save the draft in this browser.";
+        }
+    });
+
+    const actions = document.createElement("div");
+    actions.className = "dsa-actions";
+    const saveDraft = document.createElement("button");
+    saveDraft.type = "button";
+    saveDraft.className = "text-button";
+    saveDraft.textContent = "Save draft";
+    saveDraft.disabled = solvedDsaQuestions.has(question.id);
+    saveDraft.addEventListener("click", () => {
+        try {
+            localStorage.setItem(`devtrack-dsa-draft-${question.id}`, editor.value);
+            savedDraftMessage.textContent =
+                "Nice effort! Draft saved. Keep going—you’re making progress.";
+        } catch (error) {
+            console.error("Could not save the DSA draft.", error);
+            savedDraftMessage.textContent = "Could not save the draft in this browser.";
+        }
+    });
+
+    const markSolved = document.createElement("button");
+    markSolved.type = "button";
+    markSolved.className = "primary-button";
+    markSolved.textContent = solvedDsaQuestions.has(question.id)
+        ? "Solved ✓"
+        : "Mark as solved";
+    markSolved.disabled = solvedDsaQuestions.has(question.id);
+    markSolved.addEventListener("click", () => {
+        solvedDsaQuestions.add(question.id);
+        try {
+            localStorage.setItem(`devtrack-dsa-draft-${question.id}`, editor.value);
+            localStorage.setItem(
+                dsaSolvedStorageKey,
+                JSON.stringify([...solvedDsaQuestions])
+            );
+            dsaProgressStorageAvailable = true;
+        } catch (error) {
+            dsaProgressStorageAvailable = false;
+            console.error("Could not save DSA progress.", error);
+        }
+        markSolved.textContent = "Solved ✓";
+        markSolved.disabled = true;
+        updateDsaProgressMessage();
+        updateDsaProblemMessage(question);
+        updateDsaProblemList();
+    });
+    actions.append(saveDraft, markSolved);
+
+    const solution = document.createElement("details");
+    solution.className = "dsa-reveal dsa-solution";
+    const solutionSummary = document.createElement("summary");
+    solutionSummary.textContent = "Reveal Python reference solution";
+    const solutionCode = document.createElement("pre");
+    solutionCode.textContent = question.solution;
+    solution.append(solutionSummary, solutionCode);
+
+    const note = document.createElement("p");
+    note.className = "dsa-editor-note";
+    note.textContent = "The editor saves drafts in this browser. Run your code locally; solutions are provided for comparison.";
+
+    editorLabel.appendChild(editor);
+    editorDetails.append(editorLabel, note);
+
+    card.append(
+        header,
+        scenario,
+        examples,
+        hint,
+        editorDetails,
+        actions,
+        savedDraftMessage,
+        solution
+    );
+    container.appendChild(card);
+}
+
+function updateDsaProblemMessage(solvedQuestion = null) {
+    if (solvedDsaQuestions.size === dsaQuestions.length) {
+        dsaEncouragement.textContent =
+            "Amazing—you’ve solved every problem! You should be proud of your progress.";
+    } else if (solvedQuestion) {
+        const article = solvedQuestion.difficulty === "basic" ? "a" : "an";
+        dsaEncouragement.textContent =
+            `Great job solving ${article} ${solvedQuestion.difficulty} problem! Keep going—you can choose any level next.`;
+    } else {
+        dsaEncouragement.textContent =
+            "Choose a topic and difficulty to load only the matching practice problems.";
+    }
+}
+
+async function loadDsaQuestions() {
+    try {
+        const response = await fetch("/api/dsa-questions");
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || "Could not load DSA problems.");
+        }
+
+        dsaQuestions = data.questions;
+        loadDsaProgress();
+        updateDsaProgressMessage();
+        updateDsaProblemMessage();
+        updateDsaProblemList();
+    } catch (error) {
+        dsaProgress.textContent = error.message;
+        dsaProgress.classList.add("error");
+        dsaProblemPanel.textContent = "Practice problems could not be loaded. Please try again later.";
+    }
+}
+
+if (dsaFilterForm) {
+    const updateDsaSelection = () => {
+        dsaProblemPanel.textContent =
+            "Press “Load selected problems” to show questions for your selection.";
+        dsaEncouragement.textContent =
+            "Only problems matching your selected topic and level will be shown.";
+        dsaFilterForm.querySelector('button[type="submit"]').disabled =
+            !dsaTopic.value || !dsaDifficulty.value;
+    };
+    dsaTopic.addEventListener("change", updateDsaSelection);
+    dsaDifficulty.addEventListener("change", updateDsaSelection);
+    dsaFilterForm.addEventListener("submit", event => {
+        event.preventDefault();
+        updateDsaProblemList();
+    });
+    loadDsaQuestions();
 }

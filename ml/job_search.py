@@ -12,9 +12,58 @@ HEADERS = {
     "Accept": "application/json",
 }
 
+EMPLOYMENT_TYPE_TERMS = {
+    "fresher": "entry level",
+    "internship": "internship",
+    "part_time": "part time",
+    "freelance": "freelance",
+}
 
-def get_platform_search_links(role: str, location: str = "") -> List[Dict[str, str]]:
+EMPLOYMENT_TYPE_KEYWORDS = {
+    "fresher": ("entry level", "junior", "graduate", "new grad", "fresher", "trainee", "early career"),
+    "internship": ("intern", "internship"),
+    "part_time": ("part time", "parttime"),
+    "freelance": ("freelance", "contractor", "contract"),
+}
+
+
+def _matches_employment_type(
+    job: Dict[str, Any],
+    title: str,
+    tags: List[str],
+    employment_type: str,
+) -> bool:
+    if employment_type == "all":
+        return True
+
+    text = " ".join(
+        str(value)
+        for value in [
+            title,
+            *tags,
+            job.get("jobType"),
+            job.get("job_type"),
+            job.get("employmentType"),
+            job.get("employment_type"),
+            job.get("type"),
+        ]
+        if value
+    ).lower().replace("-", " ").replace("_", " ")
+
+    return any(
+        keyword in text
+        for keyword in EMPLOYMENT_TYPE_KEYWORDS.get(employment_type, ())
+    )
+
+
+def get_platform_search_links(
+    role: str,
+    location: str = "",
+    employment_type: str = "all",
+) -> List[Dict[str, str]]:
     query = role.strip()
+    if employment_type in EMPLOYMENT_TYPE_TERMS:
+        query = f"{query} {EMPLOYMENT_TYPE_TERMS[employment_type]}"
     loc = location.strip() if location else "Remote"
     encoded_q = urllib.parse.quote_plus(query)
     encoded_loc = urllib.parse.quote_plus(loc)
@@ -65,7 +114,10 @@ def get_platform_search_links(role: str, location: str = "") -> List[Dict[str, s
     ]
 
 
-def fetch_remoteok_jobs(keywords: List[str]) -> List[Dict[str, Any]]:
+def fetch_remoteok_jobs(
+    keywords: List[str],
+    employment_type: str = "all",
+) -> List[Dict[str, Any]]:
     cache_key = "remoteok_all"
     now = time.time()
 
@@ -90,7 +142,10 @@ def fetch_remoteok_jobs(keywords: List[str]) -> List[Dict[str, Any]]:
         location = job.get("location") or "Remote"
 
         searchable = f"{title} {company} {' '.join(tags)}".lower()
-        if any(kw.lower() in searchable for kw in keywords):
+        if (
+            any(kw.lower() in searchable for kw in keywords)
+            and _matches_employment_type(job, title, tags, employment_type)
+        ):
             url = job.get("url") or f"https://remoteok.com/l/{job.get('id', '')}"
             if not url.startswith("http"):
                 url = f"https://remoteok.com{url}"
@@ -117,7 +172,10 @@ def fetch_remoteok_jobs(keywords: List[str]) -> List[Dict[str, Any]]:
     return results
 
 
-def fetch_jobicy_jobs(keywords: List[str]) -> List[Dict[str, Any]]:
+def fetch_jobicy_jobs(
+    keywords: List[str],
+    employment_type: str = "all",
+) -> List[Dict[str, Any]]:
     cache_key = "jobicy_all"
     now = time.time()
 
@@ -147,7 +205,10 @@ def fetch_jobicy_jobs(keywords: List[str]) -> List[Dict[str, Any]]:
             tags = []
 
         searchable = f"{title} {company} {' '.join(tags)}".lower()
-        if any(kw.lower() in searchable for kw in keywords):
+        if (
+            any(kw.lower() in searchable for kw in keywords)
+            and _matches_employment_type(job, title, tags, employment_type)
+        ):
             salary = ""
             min_sal = job.get("annualSalaryMin")
             max_sal = job.get("annualSalaryMax")
@@ -171,7 +232,10 @@ def fetch_jobicy_jobs(keywords: List[str]) -> List[Dict[str, Any]]:
     return results
 
 
-def fetch_arbeitnow_jobs(keywords: List[str]) -> List[Dict[str, Any]]:
+def fetch_arbeitnow_jobs(
+    keywords: List[str],
+    employment_type: str = "all",
+) -> List[Dict[str, Any]]:
     cache_key = "arbeitnow_all"
     now = time.time()
 
@@ -196,7 +260,10 @@ def fetch_arbeitnow_jobs(keywords: List[str]) -> List[Dict[str, Any]]:
         location = job.get("location") or ("Remote" if job.get("remote") else "Worldwide")
 
         searchable = f"{title} {company} {' '.join(tags)}".lower()
-        if any(kw.lower() in searchable for kw in keywords):
+        if (
+            any(kw.lower() in searchable for kw in keywords)
+            and _matches_employment_type(job, title, tags, employment_type)
+        ):
             results.append({
                 "title": title,
                 "company": company,
@@ -213,43 +280,12 @@ def fetch_arbeitnow_jobs(keywords: List[str]) -> List[Dict[str, Any]]:
     return results
 
 
-def get_curated_fallback_jobs(role: str) -> List[Dict[str, Any]]:
-    role_title = role.title()
-    return [
-        {
-            "title": f"Senior {role_title}",
-            "company": "CloudScale Global",
-            "location": "Remote / Worldwide",
-            "platform": "LinkedIn / Curated",
-            "url": f"https://www.linkedin.com/jobs/search/?keywords={urllib.parse.quote_plus(role)}",
-            "tags": ["Remote", "Full-time", "Senior", "High-growth"],
-            "salary": "$110,000 - $145,000",
-            "posted": "Today",
-        },
-        {
-            "title": f"{role_title}",
-            "company": "Nexus Technologies",
-            "location": "Remote (Flexible)",
-            "platform": "Indeed / Curated",
-            "url": f"https://www.indeed.com/jobs?q={urllib.parse.quote_plus(role)}",
-            "tags": ["Full-time", "Agile", "DevOps"],
-            "salary": "$85,000 - $115,000",
-            "posted": "1 day ago",
-        },
-        {
-            "title": f"Lead {role_title}",
-            "company": "Starlight Labs",
-            "location": "Remote",
-            "platform": "Wellfound / Curated",
-            "url": f"https://wellfound.com/jobs?role={urllib.parse.quote_plus(role)}",
-            "tags": ["Startup", "Equity", "Fast-paced"],
-            "salary": "$130,000 - $170,000 + Equity",
-            "posted": "2 days ago",
-        },
-    ]
-
-
-def search_role_jobs(role: str, location: str = "Remote", platform: str = "all") -> Dict[str, Any]:
+def search_role_jobs(
+    role: str,
+    location: str = "Remote",
+    platform: str = "all",
+    employment_type: str = "all",
+) -> Dict[str, Any]:
     clean_role = role.strip()
     if not clean_role:
         return {
@@ -267,24 +303,21 @@ def search_role_jobs(role: str, location: str = "Remote", platform: str = "all")
 
     if platform in ("all", "remoteok"):
         try:
-            aggregated.extend(fetch_remoteok_jobs(keywords))
+            aggregated.extend(fetch_remoteok_jobs(keywords, employment_type))
         except Exception:
             pass
 
     if platform in ("all", "jobicy"):
         try:
-            aggregated.extend(fetch_jobicy_jobs(keywords))
+            aggregated.extend(fetch_jobicy_jobs(keywords, employment_type))
         except Exception:
             pass
 
     if platform in ("all", "arbeitnow"):
         try:
-            aggregated.extend(fetch_arbeitnow_jobs(keywords))
+            aggregated.extend(fetch_arbeitnow_jobs(keywords, employment_type))
         except Exception:
             pass
-
-    if not aggregated:
-        aggregated = get_curated_fallback_jobs(clean_role)
 
     seen = set()
     unique_jobs = []
@@ -294,11 +327,12 @@ def search_role_jobs(role: str, location: str = "Remote", platform: str = "all")
             seen.add(key)
             unique_jobs.append(j)
 
-    platform_links = get_platform_search_links(clean_role, location)
+    platform_links = get_platform_search_links(clean_role, location, employment_type)
 
     return {
         "query": clean_role,
         "location": location,
+        "employment_type": employment_type,
         "total_found": len(unique_jobs),
         "jobs": unique_jobs[:35],
         "platform_links": platform_links,

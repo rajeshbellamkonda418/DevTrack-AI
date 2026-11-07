@@ -3,7 +3,7 @@ from typing import Dict, List, Any
 
 from sklearn.metrics.pairwise import cosine_similarity
 
-from ml.model import JOB_PROFILES, vectorizer, job_matrix
+from ml.model import JOB_PROFILES, vectorizer
 
 TECH_SKILLS = [
     "python", "javascript", "typescript", "java", "c++", "cplusplus", "cpp", "c#", "csharp",

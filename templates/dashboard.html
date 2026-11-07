@@ -10,19 +10,24 @@
     <aside class="sidebar">
         <h2>DevTrack AI</h2>
         <a href="/">Home</a>
-        <a href="/dashboard">Overview</a>
-        <a href="#status-overview">Application Status</a>
-        <a href="#recommendations">AI Recommendations</a>
-        <a href="#resume-analyzer">Resume Analyzer</a>
-        <a href="#job-search">Job Search</a>
-        <a href="#applications">My Applications</a>
+        <a href="#overview" data-dashboard-target="overview">Overview</a>
+        <a href="#status-overview" data-dashboard-target="status-overview">Application Status</a>
+        <a href="#recommendations" data-dashboard-target="recommendations">AI Recommendations</a>
+        <a href="#resume-analyzer" data-dashboard-target="resume-analyzer">Resume Analyzer</a>
+        <a href="#job-search" data-dashboard-target="job-search">Job Search</a>
+        <a href="#interview-prep" data-dashboard-target="interview-prep">Interview Prep</a>
+        <a href="#dsa-practice" data-dashboard-target="dsa-practice">DSA Practice</a>
+        <a href="#applications" data-dashboard-target="applications">My Applications</a>
+        <form class="sidebar-logout" action="/logout" method="post">
+            <button type="submit">Sign out</button>
+        </form>
     </aside>
 
     <main class="main">
-        <h1>Welcome back, Developer!</h1>
+        <h1>Welcome back, {{ session.get("user_name", "there") }}!</h1>
         <p class="subtitle">Your applications, resume intelligence, and multi-platform career matching.</p>
 
-        <section class="stats" aria-label="Application statistics">
+        <section id="overview" class="stats" data-dashboard-section aria-label="Application statistics">
             <div class="card">
                 <h2 id="totalApplications">0</h2>
                 <p>Applications</p>
@@ -41,12 +46,12 @@
             </div>
         </section>
 
-        <section id="status-overview">
+        <section id="status-overview" data-dashboard-section hidden>
             <h2>Application Status</h2>
             <div id="statusChart" class="status-chart" aria-live="polite"></div>
         </section>
 
-        <section id="recommendations">
+        <section id="recommendations" data-dashboard-section hidden>
             <h2>AI Recommendations</h2>
             <p>Enter your skills to find matching career profiles.</p>
             <form id="recommend-form" class="recommend-form">
@@ -81,7 +86,7 @@
             <div id="recommendationList" aria-live="polite"></div>
         </section>
 
-        <section id="resume-analyzer">
+        <section id="resume-analyzer" data-dashboard-section hidden>
             <div class="section-heading">
                 <div>
                     <h2>AI Resume Analyzer</h2>
@@ -158,13 +163,37 @@
             <div id="resumeResults" class="resume-results" style="display: none;" aria-live="polite"></div>
         </section>
 
-        <section id="job-search">
+        <section id="job-search" data-dashboard-section hidden>
             <div class="section-heading">
                 <div>
                     <h2>Multi-Platform Job Search</h2>
-                    <p>Search live developer openings across top tech platforms (RemoteOK, Jobicy, Arbeitnow, LinkedIn, Indeed, Glassdoor) and track applications with 1 click.</p>
+                    <p>Search developer openings by role, location, and work type across job boards, then track applications.</p>
                 </div>
             </div>
+
+            <section class="salary-explorer" aria-labelledby="salary-explorer-title">
+                <div class="salary-explorer-copy">
+                    <span class="salary-eyebrow">PAY SNAPSHOT · INDIA</span>
+                    <h3 id="salary-explorer-title">Know your range before you apply</h3>
+                    <p id="salaryRoleLabel">Software Engineer · Mid-level</p>
+                </div>
+                <div class="salary-explorer-range">
+                    <span class="salary-range-caption">Estimated annual base pay · INR</span>
+                    <strong id="salaryRange" aria-live="polite">₹8L–₹18L per year</strong>
+                    <div class="salary-range-track" aria-hidden="true">
+                        <span id="salaryRangeBar"></span>
+                    </div>
+                </div>
+                <label class="salary-level-control">
+                    Experience
+                    <select id="salaryExperience">
+                        <option value="entry">Entry level</option>
+                        <option value="mid" selected>Mid-level</option>
+                        <option value="senior">Senior</option>
+                    </select>
+                </label>
+                <p class="salary-disclaimer">Indicative India market ranges, not guaranteed offers. Actual pay varies by location, company, and experience; live listings retain the salary and currency provided by the employer.</p>
+            </section>
 
             <form id="jobSearchForm" class="job-search-form">
                 <div class="job-search-grid">
@@ -175,6 +204,16 @@
                     <label>
                         Location
                         <input id="jobSearchLocation" type="text" placeholder="Remote, Worldwide, or City" value="Remote">
+                    </label>
+                    <label>
+                        Opportunity type
+                        <select id="jobSearchType">
+                            <option value="all">All opportunities</option>
+                            <option value="fresher">Fresher / Entry-level</option>
+                            <option value="internship">Internship</option>
+                            <option value="part_time">Part-time</option>
+                            <option value="freelance">Freelance / Contract</option>
+                        </select>
                     </label>
                     <label>
                         Platform Filter
@@ -201,7 +240,95 @@
             </div>
         </section>
 
-        <section id="applications">
+        <section id="interview-prep" data-dashboard-section hidden>
+            <div class="section-heading">
+                <div>
+                    <h2>Interview Practice</h2>
+                    <p>Select one domain and difficulty level to focus your interview practice.</p>
+                </div>
+            </div>
+
+            <form id="interview-question-form" class="interview-question-form">
+                <label>
+                    Technology / domain
+                    <select id="interview-topic" required>
+                        <option value="" selected disabled>Select a domain</option>
+                        <option value="genai">Generative AI &amp; LLMs</option>
+                        <option value="machine-learning">Machine Learning</option>
+                        <option value="python">Python</option>
+                        <option value="sql">SQL &amp; Databases</option>
+                        <option value="data-structures">Data Structures &amp; Algorithms</option>
+                        <option value="web-backend">Web &amp; Backend Engineering</option>
+                        <option value="data-engineering">Data Engineering</option>
+                        <option value="cloud-devops">Cloud &amp; DevOps</option>
+                        <option value="java">Java</option>
+                        <option value="cybersecurity">Cybersecurity</option>
+                        <option value="frontend">Frontend Engineering</option>
+                        <option value="system-design">System Design</option>
+                    </select>
+                </label>
+                <label>
+                    Difficulty
+                    <select id="interview-level" required>
+                        <option value="" selected disabled>Select a level</option>
+                        <option value="basic">Basic</option>
+                        <option value="intermediate">Intermediate</option>
+                        <option value="advanced">Advanced</option>
+                    </select>
+                </label>
+                <button type="submit" class="primary-button" disabled>Load selected questions</button>
+            </form>
+
+            <p id="interview-question-count" class="question-count" aria-live="polite">
+                Select a domain and level, then load your questions.
+            </p>
+            <div id="interview-question-list" class="interview-question-list" aria-live="polite"></div>
+        </section>
+
+        <section id="dsa-practice" data-dashboard-section hidden>
+            <div class="section-heading">
+                <div>
+                    <h2>DSA Practice Lab</h2>
+                    <p>Select a topic and difficulty, then load only the matching practice problems.</p>
+                </div>
+            </div>
+
+            <form id="dsa-filter-form" class="interview-question-form">
+                <label>
+                    Topic
+                    <select id="dsa-topic" required>
+                        <option value="" selected disabled>Select a topic</option>
+                        <option value="arrays">Arrays</option>
+                        <option value="strings">Strings</option>
+                        <option value="hash-maps">Hash Maps</option>
+                        <option value="stacks-queues">Stacks &amp; Queues</option>
+                        <option value="search-sort">Searching &amp; Sorting</option>
+                        <option value="trees-graphs">Trees &amp; Graphs</option>
+                        <option value="dynamic-programming">Dynamic Programming</option>
+                    </select>
+                </label>
+                <label>
+                    Difficulty
+                    <select id="dsa-difficulty" required>
+                        <option value="" selected disabled>Select a level</option>
+                        <option value="basic">Basic</option>
+                        <option value="intermediate">Intermediate</option>
+                        <option value="advanced">Advanced</option>
+                    </select>
+                </label>
+                <button type="submit" class="primary-button" disabled>Load selected problems</button>
+            </form>
+
+            <p id="dsa-progress" class="question-count" aria-live="polite"></p>
+            <p id="dsa-encouragement" class="dsa-encouragement" role="status" aria-live="polite">
+                Select a topic and level to load practice problems.
+            </p>
+            <div id="dsa-problem-panel" class="dsa-problem-panel">
+                <p class="muted-note">Choose a topic and difficulty, then load the matching problems.</p>
+            </div>
+        </section>
+
+        <section id="applications" data-dashboard-section hidden>
             <div class="section-heading">
                 <div>
                     <h2>My Applications</h2>
@@ -257,6 +384,10 @@
             <p id="filter-help" class="filter-help">Showing all applications.</p>
             <div id="applicationList" aria-live="polite">Loading applications...</div>
         </section>
+
+        <footer class="dashboard-footer">
+            <span class="creator-credit">Developed by <span class="creator-name">Rajesh</span></span>
+        </footer>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>

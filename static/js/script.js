@@ -236,35 +236,157 @@ function animateMatches() {
     }
 }
 
+const homeJobSearchForm = document.getElementById("home-job-search-form");
+const homeJobRole = document.getElementById("home-job-role");
+const homeJobLocation = document.getElementById("home-job-location");
+const homeJobType = document.getElementById("home-job-type");
+const homeJobMessage = document.getElementById("home-job-message");
+const homeJobResults = document.getElementById("home-job-results");
+const homeJobLinks = document.getElementById("home-job-links");
+const homeJobLinkList = document.getElementById("home-job-link-list");
+
+function isSafeJobUrl(value) {
+    try {
+        return ["http:", "https:"].includes(new URL(value).protocol);
+    } catch {
+        return false;
+    }
+}
+
+function renderHomeJobResults(data) {
+    const links = (data.platform_links || [])
+        .filter(platform => isSafeJobUrl(platform.url))
+        .map(platform => {
+            const link = document.createElement("a");
+            link.href = platform.url;
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+            link.textContent = `${platform.name} ↗`;
+            return link;
+        });
+    homeJobLinkList.replaceChildren(...links);
+    homeJobLinks.hidden = links.length === 0;
+
+    if (!data.jobs || data.jobs.length === 0) {
+        homeJobMessage.textContent =
+            `No live postings found for "${data.query}". Try the direct job-board searches above.`;
+        homeJobResults.replaceChildren();
+        return;
+    }
+
+    const cards = data.jobs.map(job => {
+        const card = document.createElement("article");
+        card.className = "home-job-card";
+
+        const platform = document.createElement("p");
+        platform.className = "home-job-platform";
+        platform.textContent = job.platform || "Job board";
+
+        const title = document.createElement("h3");
+        title.textContent = job.title || "Untitled role";
+
+        const company = document.createElement("p");
+        company.className = "home-job-company";
+        company.textContent = job.company || "Company not listed";
+
+        const details = document.createElement("p");
+        details.className = "home-job-details";
+        details.textContent = `${job.location || "Remote"}${job.salary ? ` · ${job.salary}` : ""}`;
+
+        const actions = document.createElement("div");
+        actions.className = "home-job-actions";
+        if (isSafeJobUrl(job.url)) {
+            const applyLink = document.createElement("a");
+            applyLink.href = job.url;
+            applyLink.target = "_blank";
+            applyLink.rel = "noopener noreferrer";
+            applyLink.className = "primary-link search-link";
+            applyLink.textContent = "View job ↗";
+            actions.appendChild(applyLink);
+        }
+
+        card.append(platform, title, company, details, actions);
+        return card;
+    });
+
+    homeJobResults.replaceChildren(...cards);
+    homeJobMessage.textContent = `${data.jobs.length} job listing${data.jobs.length === 1 ? "" : "s"} found.`;
+}
+
+async function searchHomeJobs() {
+    if (!homeJobSearchForm) return;
+
+    const submitButton = homeJobSearchForm.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    homeJobMessage.textContent = "Searching current job listings...";
+    homeJobResults.replaceChildren();
+
+    try {
+        const params = new URLSearchParams({
+            role: homeJobRole.value.trim(),
+            location: homeJobLocation.value.trim() || "Remote",
+            employment_type: homeJobType.value
+        });
+        const response = await fetch(`/api/search-jobs?${params}`);
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || "Could not load job listings.");
+        }
+        renderHomeJobResults(data);
+    } catch (error) {
+        homeJobMessage.textContent = error.message;
+        homeJobMessage.classList.add("error");
+    } finally {
+        submitButton.disabled = false;
+    }
+}
+
+if (homeJobSearchForm) {
+    homeJobSearchForm.addEventListener("submit", event => {
+        event.preventDefault();
+        homeJobMessage.classList.remove("error");
+        searchHomeJobs();
+    });
+}
+
 window.addEventListener("DOMContentLoaded", () => {
     loadJobs();
+    searchHomeJobs();
 
-    if (window.gsap) {
-        gsap.from(".hero-copy > *", {
-            y: 24,
-            opacity: 0,
-            duration: 0.7,
-            stagger: 0.12
-        });
-
-        gsap.from(".hero-card", {
-            x: 35,
-            opacity: 0,
-            duration: 0.8,
-            delay: 0.2
-        });
-
-        if (window.ScrollTrigger) {
-            gsap.registerPlugin(ScrollTrigger);
-            gsap.from(".section-heading", {
-                scrollTrigger: {
-                    trigger: ".section",
-                    start: "top 85%"
-                },
-                y: 20,
-                opacity: 0,
-                duration: 0.6
-            });
-        }
+    const revealElements = document.querySelectorAll("[data-reveal]");
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        revealElements.forEach(element => element.classList.add("is-visible"));
+        return;
     }
+
+    document.documentElement.classList.add("motion-ready");
+    if ("IntersectionObserver" in window) {
+        const revealObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (!entry.isIntersecting) return;
+                entry.target.classList.add("is-visible");
+                observer.unobserve(entry.target);
+            });
+        }, { threshold: 0.12, rootMargin: "0px 0px -35px 0px" });
+        revealElements.forEach(element => revealObserver.observe(element));
+    } else {
+        revealElements.forEach(element => element.classList.add("is-visible"));
+    }
+
+    if (!window.gsap) return;
+    gsap.from(".hero-copy > *", {
+        y: 24,
+        opacity: 0,
+        duration: 0.7,
+        stagger: 0.12,
+        clearProps: "all"
+    });
+
+    gsap.from(".hero-card", {
+        x: 35,
+        opacity: 0,
+        duration: 0.8,
+        delay: 0.2,
+        clearProps: "all"
+    });
 });
